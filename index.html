@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilingual Personality Glossary | 性格词汇宝典</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: The application is designed as an interactive dashboard. The primary structure consists of a control panel for filtering and searching, a main content area displaying glossary terms as cards in a responsive grid, and a dynamic summary chart. This dashboard approach was chosen because it allows users to actively explore a large dataset intuitively. Users can slice the data by categories (e.g., The Big Five), polarity, or frequency, or perform a free-text search. This non-linear exploration is more effective for learning and reference than a static list, empowering users to find relevant information quickly. The flow is: see all -> filter/search -> view refined list + updated visual summary. -->
+    <!-- Visualization & Content Choices: The core data is presented in a card grid (HTML/Tailwind), which is ideal for displaying discrete, structured information for each term. For a high-level summary, a dynamic Doughnut chart (Chart.js/Canvas) visualizes the polarity distribution of the currently filtered terms. This provides immediate visual feedback on the user's filtering actions. Report Info: Entire glossary -> Goal: Explore & Learn -> Viz: Interactive Card Grid -> Interaction: Filter/Search -> Justification: Manages large dataset effectively. Report Info: Polarity Distribution -> Goal: Summarize -> Viz: Doughnut Chart -> Interaction: Updates with filters -> Justification: Provides quick visual context. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #4A4A4A;
+        }
+        .filter-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .filter-btn.active {
+            background-color: #D5BFAA;
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+        .card {
+            background-color: #FFFFFF;
+            border: 1px solid #EAEAEA;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .card-content {
+            flex-grow: 1;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 300px;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Bilingual Personality Glossary</h1>
+            <h2 class="text-xl md:text-2xl font-semibold text-gray-700 mt-1">性格词汇宝典</h2>
+            <p class="mt-4 max-w-3xl mx-auto text-gray-600">
+                An interactive tool for learners to explore personality and character traits in English and Chinese. Use the filters to discover words by category, polarity, and frequency.
+            </p>
+        </header>
+
+        <main>
+            <!-- Note on data sourcing -->
+            <div class="mb-8 p-6 bg-gray-50 rounded-xl border border-gray-200">
+                <h3 class="font-semibold text-gray-800 mb-2">关于词汇来源的说明 (Notes on Vocabulary Sources)</h3>
+                <p class="text-gray-600 text-sm mb-2">
+                    本词汇表收录了多种来源的性格与个性词汇。其中部分词条改编自《宝可梦》系列游戏中的“性格”设定，它们的中文翻译可能为了适应游戏语境而与字面意思有所区别。本词汇表旨在提供一个多功能的学习工具，未来将持续扩充更多来自不同领域的词汇。
+                </p>
+                <p class="text-gray-600 text-sm">
+                    This glossary includes personality and character traits from a variety of sources. Some entries are adapted from the "Natures" in the Pokémon series, where the Chinese translation may differ from the literal meaning to better suit the game's context. The aim is to provide a versatile learning tool that will continue to expand with terms from different fields.
+                </p>
+            </div>
+
+            <div id="controls" class="mb-8 p-6 bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="col-span-1 md:col-span-2 lg:col-span-4">
+                        <input type="text" id="searchInput" placeholder="Search English, Pinyin, or Chinese..." class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D5BFAA]">
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-700 mb-2">Filter by Category:</h3>
+                        <div id="categoryFilters" class="flex flex-wrap gap-2">
+                             <button class="filter-btn active px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="all">All Categories</button>
+                             <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Social">Social Style</button>
+                             <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Work">Work Style</button>
+                             <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Emotional">Emotional Tone</button>
+                             <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Moral">Moral Character</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                             <h3 class="font-semibold text-gray-700 mb-2">Filter by Polarity:</h3>
+                            <div id="polarityFilters" class="flex flex-wrap gap-2">
+                                <button class="filter-btn active px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="all">All Polarities</button>
+                                <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Positive">Positive</button>
+                                <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Neutral">Neutral</button>
+                                <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Negative">Negative</button>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-700 mb-2">Filter by Register:</h3>
+                            <div id="registerFilters" class="flex flex-wrap gap-2">
+                                <button class="filter-btn active px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="all">All Registers</button>
+                                <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Neutral">Neutral</button>
+                                <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Formal">Formal</button>
+                                <button class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm" data-filter="Game">Game Context</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-center">
+                         <button id="resetFilters" class="px-5 py-2 bg-gray-700 text-white rounded-full hover:bg-gray-800 transition-colors">Reset All Filters</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8">
+                <div class="lg:w-3/4">
+                    <div id="glossaryGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    </div>
+                </div>
+                <div class="lg:w-1/4">
+                    <div class="sticky top-8 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-lg text-center text-gray-800 mb-4">Filtered Traits Summary</h3>
+                        <div class="chart-container">
+                             <canvas id="polarityChart"></canvas>
+                        </div>
+                        <p id="chart-info" class="text-center text-sm text-gray-500 mt-4">This chart shows the polarity of the currently displayed terms.</p>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+        
+        <footer class="mt-12 mb-8 text-center text-sm text-gray-500">
+             <div id="sources" class="p-4 bg-white rounded-xl shadow-sm border border-gray-200 inline-block">
+                 <h4 class="font-semibold text-gray-700 mb-2">资料来源 (Sources)</h4>
+                 <ul>
+                     <li>
+                         <a href="https://bulbapedia.bulbagarden.net/wiki/Nature" target="_blank" class="text-blue-500 hover:underline">
+                             Bulbapedia: Nature
+                         </a>
+                     </li>
+                 </ul>
+             </div>
+        </footer>
+    </div>
+
+    <script>
+        const personalityData = [
+            { term_en: 'Hardy / Tenacious', term_zh: '坚韧', pinyin: 'jiānrèn', definition_en: 'Persistent and resilient, not easily giving up.', definition_zh: '坚定而有韧性，不轻易放弃。', polarity: 'Positive', register: 'Formal', categories: ['Work', 'Emotional'], notes: '坚 (firm) + 韧 (tough) = strong yet flexible.' },
+            { term_en: 'Diligent', term_zh: '勤奋', pinyin: 'qínfèn', definition_en: 'Diligent and hardworking, not afraid of effort.', definition_zh: '用功努力，不怕辛苦。', polarity: 'Positive', register: 'Neutral', categories: ['Work'], notes: '勤 (industrious) + 奋 (strive) = work hard with energy.' },
+            { term_en: 'Lonely', term_zh: '寂寞', pinyin: 'jìmò', definition_en: 'Feeling alone, lacking companionship.', definition_zh: '形容孤单、缺乏陪伴的感觉。', polarity: 'Negative', register: 'Neutral', categories: ['Emotional', 'Social'], notes: '寂 (silent) + 寞 (lonely) = profound loneliness.' },
+            { term_en: 'Afraid of being alone', term_zh: '怕寂寞', pinyin: 'pà jìmò', definition_en: 'Afraid of being alone, longing for company.', definition_zh: '害怕孤独，渴望陪伴。', polarity: 'Negative', register: 'Game', categories: ['Emotional', 'Social'], notes: 'Pokémon context. 怕 (afraid) + 寂寞 (loneliness).' },
+            { term_en: 'Brave', term_zh: '勇敢', pinyin: 'yǒnggǎn', definition_en: 'Courageous, not afraid of challenges or danger.', definition_zh: '不怕困难，敢于面对危险。', polarity: 'Positive', register: 'Neutral', categories: ['Moral', 'Emotional'], notes: '勇 (brave) + 敢 (dare) = dares to be brave.' },
+            { term_en: 'Adamant / Stubborn', term_zh: '固执', pinyin: 'gùzhí', definition_en: 'Stubborn, sticking to one’s opinions.', definition_zh: '坚持己见，不容易改变想法。', polarity: 'Negative', register: 'Neutral', categories: ['Social', 'Work'], notes: '固 (firm) + 执 (hold) = firmly holding an idea.' },
+            { term_en: 'Naughty', term_zh: '顽皮', pinyin: 'wánpí', definition_en: 'Playful, mischievous, often in a cute way.', definition_zh: '调皮淘气，但常带有可爱意味。', polarity: 'Neutral', register: 'Neutral', categories: ['Social'], notes: '顽 (playful) + 皮 (skin) = playful on the outside.' },
+            { term_en: 'Bold', term_zh: '大胆', pinyin: 'dàdǎn', definition_en: 'Daring, fearless in speech or action.', definition_zh: '敢说敢做，不害怕。', polarity: 'Positive', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '大 (big) + 胆 (courage) = big courage.' },
+            { term_en: 'Docile', term_zh: '顺从', pinyin: 'shùncóng', definition_en: 'Obedient, compliant, easy to control.', definition_zh: '听话、容易服从别人。', polarity: 'Neutral', register: 'Neutral', categories: ['Social'], notes: '顺 (follow) + 从 (comply) = to follow obediently.' },
+            { term_en: 'Frank', term_zh: '坦率', pinyin: 'tǎnshuài', definition_en: 'Open, candid, honest in expression.', definition_zh: '直言不讳，真实表达想法。', polarity: 'Positive', register: 'Neutral', categories: ['Social', 'Moral'], notes: '坦 (open) + 率 (straightforward) = open and straightforward.' },
+            { term_en: 'Relaxed / Leisurely', term_zh: '悠闲', pinyin: 'yōuxián', definition_en: 'Leisurely, carefree, unhurried.', definition_zh: '轻松自在，不紧张。', polarity: 'Positive', register: 'Neutral', categories: ['Emotional'], notes: '悠 (leisurely) + 闲 (free time) = unhurried and free.' },
+            { term_en: 'Impish / Mischievous', term_zh: '淘气', pinyin: 'táoqì', definition_en: 'Mischievous or playful, often endearing.', definition_zh: '调皮捣蛋，常令人觉得可爱。', polarity: 'Neutral', register: 'Neutral', categories: ['Social'], notes: '淘 (mischievous) + 气 (spirit) = lively and playful spirit.' },
+            { term_en: 'Lax', term_zh: '松弛', pinyin: 'sōngchí', definition_en: 'Relaxed, loose, not strict.', definition_zh: '不紧张，不严格。', polarity: 'Negative', register: 'Neutral', categories: ['Work'], notes: '松 (loose) + 弛 (slacken) = looseness.' },
+            { term_en: 'Optimistic', term_zh: '乐天', pinyin: 'lètiān', definition_en: 'Cheerful, optimistic, positive-minded.', definition_zh: '性格开朗，对事情抱积极态度。', polarity: 'Positive', register: 'Neutral', categories: ['Emotional'], notes: '乐 (happy) + 天 (nature) = natural joy.' },
+            { term_en: 'Timid', term_zh: '胆小', pinyin: 'dǎnxiǎo', definition_en: 'Easily frightened, lacking courage.', definition_zh: '容易害怕，缺乏勇气。', polarity: 'Negative', register: 'Neutral', categories: ['Emotional', 'Social'], notes: '胆 (courage) + 小 (small) → "small courage."' },
+            { term_en: 'Hasty / Impatient', term_zh: '急躁', pinyin: 'jízào', definition_en: 'Impatient, irritable, prone to restlessness.', definition_zh: '性格急切，容易不耐烦。', polarity: 'Negative', register: 'Neutral', categories: ['Emotional', 'Work'], notes: '急 (urgent) + 躁 (restless) → easily restless and impatient.' },
+            { term_en: 'Serious / Earnest', term_zh: '认真', pinyin: 'rènzhēn', definition_en: 'Earnest, focused, serious.', definition_zh: '做事专心、严肃。', polarity: 'Positive', register: 'Neutral', categories: ['Work', 'Moral'], notes: '认 (to recognize) + 真 (true) → to acknowledge truth with focus.' },
+            { term_en: 'Jolly / Cheerful', term_zh: '爽朗', pinyin: 'shuǎnglǎng', definition_en: 'Cheerful, open, bright personality.', definition_zh: '性格开朗，直率，爱笑。', polarity: 'Positive', register: 'Neutral', categories: ['Emotional', 'Social'], notes: '爽 (refreshing) + 朗 (clear) → refreshing and cheerful.' },
+            { term_en: 'Naive', term_zh: '天真', pinyin: 'tiānzhēn', definition_en: 'Innocent, naive, simple-minded.', definition_zh: '单纯，缺乏世故。', polarity: 'Neutral', register: 'Neutral', categories: ['Emotional', 'Social'], notes: '天 (heavenly) + 真 (genuine) → naturally genuine.' },
+            { term_en: 'Modest / Humble', term_zh: '谦虚', pinyin: 'qiānxū', definition_en: 'Humble, modest, doesn’t boast.', definition_zh: '不自夸，承认不足。', polarity: 'Positive', register: 'Formal', categories: ['Moral', 'Social'], notes: '谦 (humble) + 虚 (empty) → humbling oneself.' },
+            { term_en: 'Reserved / Introverted', term_zh: '内敛', pinyin: 'nèiliǎn', definition_en: 'Reserved, introverted, keeps feelings inside.', definition_zh: '不轻易表露情感，安静。', polarity: 'Neutral', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '内 (inside) + 敛 (restrain) → restraining inside.' },
+            { term_en: 'Gentle / Mild', term_zh: '温和', pinyin: 'wēnhé', definition_en: 'Gentle, mild, not aggressive.', definition_zh: '性格柔和，待人友好。', polarity: 'Positive', register: 'Neutral', categories: ['Emotional', 'Social'], notes: '温 (warm) + 和 (harmony) → warm and harmonious.' },
+            { term_en: 'Sluggish', term_zh: '慢吞吞', pinyin: 'màntūntūn', definition_en: 'Slow-moving, sluggish in actions.', definition_zh: '动作缓慢。', polarity: 'Negative', register: 'Neutral', categories: ['Work'], notes: 'ABB form. 慢 (slow) + 吞 (swallow) → dragging and slow.' },
+            { term_en: 'Quiet / Peaceful', term_zh: '安静', pinyin: 'ānjìng', definition_en: 'Quiet, silent, not talkative.', definition_zh: '不吵闹，不多话。', polarity: 'Neutral', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '安 (peaceful) + 静 (still) → peaceful and still.' },
+            { term_en: 'Calm', term_zh: '冷静', pinyin: 'lěngjìng', definition_en: 'Calm, clear-headed, not panicking.', definition_zh: '遇事不慌，保持清醒。', polarity: 'Positive', register: 'Neutral', categories: ['Emotional', 'Work'], notes: '冷 (cold) + 静 (still) → cool and still-minded.' },
+            { term_en: 'Bashful / Shy', term_zh: '害羞', pinyin: 'hàixiū', definition_en: 'Shy, bashful, easily embarrassed.', definition_zh: '在人前不敢表现，脸红心慌。', polarity: 'Negative', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '害 (to fear) + 羞 (shame) → fearing shame.' },
+            { term_en: 'Rash / Reckless', term_zh: '鲁莽', pinyin: 'lǔmǎng', definition_en: 'Rash, reckless, acts without thinking.', definition_zh: '行事冲动，不考虑后果。', polarity: 'Negative', register: 'Neutral', categories: ['Work', 'Moral'], notes: '鲁 (crude) + 莽 (reckless) → crude and reckless.' },
+            { term_en: 'Careless / Sloppy', term_zh: '马虎', pinyin: 'mǎhu', definition_en: 'Careless, sloppy, not paying attention.', definition_zh: '做事不认真，容易出错。', polarity: 'Negative', register: 'Neutral', categories: ['Work'], notes: '马 (horse) + 虎 (tiger) → a careless mix, colloquial.' },
+            { term_en: 'Meek / Docile', term_zh: '温顺', pinyin: 'wēnshùn', definition_en: 'Gentle, meek, submissive.', definition_zh: '性格听话，容易接受安排。', polarity: 'Positive', register: 'Neutral', categories: ['Social'], notes: '温 (warm) + 顺 (obedient) → warm and obedient.' },
+            { term_en: 'Sassy / Bold', term_zh: '泼辣', pinyin: 'pōlà', definition_en: 'Sassy, bold, lively, outspoken.', definition_zh: '性格直率，敢说敢做，略带调皮。', polarity: 'Neutral', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '泼 (vigorous) + 辣 (spicy) → bold and spicy.' },
+            { term_en: 'Arrogant / Overconfident', term_zh: '自大', pinyin: 'zìdà', definition_en: 'Arrogant, thinks oneself superior.', definition_zh: '自以为是，看不起别人。', polarity: 'Negative', register: 'Neutral', categories: ['Social', 'Moral'], notes: '自 (self) + 大 (big) → thinks self is big.' },
+            { term_en: 'Careful / Prudent', term_zh: '慎重', pinyin: 'shènzhòng', definition_en: 'Careful, prudent, thinks things through.', definition_zh: '做事小心，考虑周全。', polarity: 'Positive', register: 'Formal', categories: ['Work'], notes: '慎 (cautious) + 重 (serious) → seriously cautious.' },
+            { term_en: 'Quirky / Eccentric', term_zh: '古怪', pinyin: 'gǔguài', definition_en: 'Unusual, unique traits, often interesting.', definition_zh: '性格或行为特别，有趣或独特。', polarity: 'Neutral', register: 'Neutral', categories: ['Social'], notes: '古 (peculiar) + 怪 (strange) → peculiarly strange.' },
+            { term_en: 'Impetuous', term_zh: '浮躁', pinyin: 'fúzào', definition_en: 'Impetuous, restless, acts without thinking.', definition_zh: '心情急躁，容易冲动。', polarity: 'Negative', register: 'Neutral', categories: ['Emotional'], notes: '浮 (float) + 躁 (restless) → shallow and restless.' },
+            { term_en: 'Quiet / Refined', term_zh: '文静', pinyin: 'wénjìng', definition_en: 'Refined, calm, quiet personality.', definition_zh: '性格温和安静，喜欢读书或静态活动。', polarity: 'Positive', register: 'Neutral', categories: ['Social'], notes: '文 (culture) + 静 (still) → cultured and calm.' },
+            { term_en: 'Contradictory / Twisted', term_zh: '拧巴', pinyin: 'níngbā', definition_en: 'Contradictory, stubborn, difficult to deal with.', definition_zh: '性格固执或想法矛盾，处理事情不顺畅。', polarity: 'Negative', register: 'Neutral', categories: ['Emotional', 'Social'], notes: 'A colloquial term for a complex, conflicting personality.' },
+            { term_en: 'Taciturn / Reticent', term_zh: '寡言', pinyin: 'guǎyán', definition_en: 'Speaks little, quiet, reserved.', definition_zh: '说话少，沉默寡言。', polarity: 'Neutral', register: 'Neutral', categories: ['Social'], notes: '寡 (few) + 言 (words) → few words.' },
+            { term_en: 'Cheerful / Outgoing', term_zh: '开朗', pinyin: 'kāilǎng', definition_en: 'Cheerful and optimistic, often sociable and friendly.', definition_zh: '性格开朗，待人热情，乐观向上。', polarity: 'Positive', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '开 (open) + 朗 (bright) → 性格开放、明亮。' },
+            { term_en: 'Active / Positive', term_zh: '积极', pinyin: 'jījí', definition_en: 'Proactive and enthusiastic about tasks and challenges.', definition_zh: '对事物充满热情，主动积极。', polarity: 'Positive', register: 'Neutral', categories: ['Work'], notes: '积 (accumulate) + 极 (extreme) → 不断积累，达到极致。' },
+            { term_en: 'Gentle / Tender', term_zh: '温柔', pinyin: 'wēnróu', definition_en: 'Gentle and kind-hearted, often showing compassion.', definition_zh: '性格温和，待人亲切。', polarity: 'Positive', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '温 (warm) + 柔 (soft) → 温暖柔和的性格。' },
+            { term_en: 'Patient / Enduring', term_zh: '忍耐', pinyin: 'rěnnài', definition_en: 'Able to endure difficulties or pain with patience.', definition_zh: '能够忍受困难或痛苦，耐心等待。', polarity: 'Positive', register: 'Neutral', categories: ['Work', 'Emotional'], notes: '忍 (endure) + 耐 (tolerate) → 有耐性，能忍受。' },
+            { term_en: 'Calm / Steady', term_zh: '沉稳', pinyin: 'chénwěn', definition_en: 'Stable and composed, not easily agitated.', definition_zh: '性格稳重，不轻易激动。', polarity: 'Positive', register: 'Neutral', categories: ['Emotional', 'Work'], notes: '沉 (sink) + 稳 (stable) → 稳定沉着。' },
+            { term_en: 'Kind-hearted', term_zh: '善良', pinyin: 'shànliáng', definition_en: 'Kind-hearted and sincere in dealings with others.', definition_zh: '心地善良，待人真诚。', polarity: 'Positive', register: 'Neutral', categories: ['Moral', 'Social'], notes: '善 (good) + 良 (good) → 两个“好”字，强调善意。' },
+            { term_en: 'Modest', term_zh: '谦虚', pinyin: 'qiānxū', definition_en: 'Humble and unpretentious.', definition_zh: '不自夸，谦逊待人。', polarity: 'Positive', register: 'Formal', categories: ['Moral', 'Social'], notes: '谦 (modest) + 虚 (empty) → 谦逊而不张扬。' },
+            { term_en: 'Stubborn', term_zh: '固执', pinyin: 'gùzhí', definition_en: 'Stubborn and resistant to change.', definition_zh: '坚持己见，不易改变。', polarity: 'Negative', register: 'Neutral', categories: ['Social', 'Work'], notes: '固 (firm) + 执 (hold) → 坚持不放。' },
+            { term_en: 'Lively / Energetic', term_zh: '活泼', pinyin: 'huópō', definition_en: 'Lively and full of energy.', definition_zh: '性格生动，充满活力。', polarity: 'Positive', register: 'Neutral', categories: ['Social', 'Emotional'], notes: '活 (live) + 泼 (splash) → 活力四射。' },
+            { term_en: 'Calm / Composed', term_zh: '冷静', pinyin: 'lěngjìng', definition_en: 'Remain calm and composed in the face of difficulties.', definition_zh: '面对困难保持冷静，不慌张。', polarity: 'Positive', register: 'Neutral', categories: ['Emotional', 'Work'], notes: '冷 (cold) + 静 (quiet) → 冷静沉着。' }
+        ];
+
+        let polarityChart;
+        let currentFilters = {
+            searchTerm: '',
+            category: 'all',
+            polarity: 'all',
+            register: 'all',
+        };
+        
+        const stringIncludes = (str, search) => str.toLowerCase().includes(search.toLowerCase());
+
+        const renderGlossary = () => {
+            const grid = document.getElementById('glossaryGrid');
+            const searchInput = document.getElementById('searchInput').value;
+            currentFilters.searchTerm = searchInput;
+
+            const filteredData = personalityData.filter(item => {
+                const searchMatch = currentFilters.searchTerm === '' ||
+                    stringIncludes(item.term_en, currentFilters.searchTerm) ||
+                    stringIncludes(item.term_zh, currentFilters.searchTerm) ||
+                    stringIncludes(item.pinyin, currentFilters.searchTerm);
+                
+                const categoryMatch = currentFilters.category === 'all' || item.categories.includes(currentFilters.category);
+                const polarityMatch = currentFilters.polarity === 'all' || item.polarity === currentFilters.polarity;
+                const registerMatch = currentFilters.register === 'all' || item.register === currentFilters.register;
+
+                return searchMatch && categoryMatch && polarityMatch && registerMatch;
+            });
+            
+            grid.innerHTML = '';
+            if(filteredData.length === 0){
+                grid.innerHTML = `<p class="col-span-1 md:col-span-2 xl:col-span-3 text-center text-gray-500">No matching terms found.</p>`;
+            } else {
+                filteredData.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'card rounded-xl shadow-sm p-5';
+                    
+                    let polarityColorClass = 'bg-gray-200 text-gray-800';
+                    if (item.polarity === 'Positive') polarityColorClass = 'bg-green-100 text-green-800';
+                    else if (item.polarity === 'Negative') polarityColorClass = 'bg-red-100 text-red-800';
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">${item.term_en}</h3>
+                                <p class="text-lg font-semibold text-gray-700">${item.term_zh} (${item.pinyin})</p>
+                            </div>
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${polarityColorClass}">${item.polarity}</span>
+                        </div>
+                        <div class="card-content text-gray-600 text-sm space-y-3">
+                            <p><strong>EN:</strong> ${item.definition_en}</p>
+                            <p><strong>ZH:</strong> ${item.definition_zh}</p>
+                            ${item.notes ? `<p class="text-xs text-gray-500 bg-gray-50 p-2 rounded-md"><em>Note:</em> ${item.notes}</p>` : ''}
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
+                             ${item.categories.map(cat => `<span class="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded-md">${cat}</span>`).join('')}
+                             <span class="text-xs font-medium px-2 py-1 bg-purple-100 text-purple-800 rounded-md">${item.register}</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+            updateChart(filteredData);
+        };
+        
+        const setupChart = () => {
+             const ctx = document.getElementById('polarityChart').getContext('2d');
+             polarityChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Positive', 'Neutral', 'Negative'],
+                    datasets: [{
+                        label: 'Polarity Count',
+                        data: [0, 0, 0],
+                        backgroundColor: [
+                            'rgba(74, 222, 128, 0.7)',
+                            'rgba(156, 163, 175, 0.7)',
+                            'rgba(239, 68, 68, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(107, 114, 128, 1)',
+                            'rgba(220, 38, 38, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        };
+        
+        const updateChart = (data) => {
+            const counts = { 'Positive': 0, 'Neutral': 0, 'Negative': 0 };
+            data.forEach(item => {
+                if(counts[item.polarity] !== undefined){
+                    counts[item.polarity]++;
+                }
+            });
+            polarityChart.data.datasets[0].data = [counts.Positive, counts.Neutral, counts.Negative];
+            polarityChart.update();
+        };
+
+        const setupEventListeners = () => {
+            document.getElementById('searchInput').addEventListener('input', renderGlossary);
+            
+            const filterButtonGroups = [
+                { id: 'categoryFilters', filterKey: 'category' },
+                { id: 'polarityFilters', filterKey: 'polarity' },
+                { id: 'registerFilters', filterKey: 'register' }
+            ];
+
+            filterButtonGroups.forEach(group => {
+                const container = document.getElementById(group.id);
+                container.addEventListener('click', (e) => {
+                    if(e.target.tagName === 'BUTTON'){
+                        currentFilters[group.filterKey] = e.target.dataset.filter;
+                        container.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                        e.target.classList.add('active');
+                        renderGlossary();
+                    }
+                });
+            });
+            
+            document.getElementById('resetFilters').addEventListener('click', () => {
+                 currentFilters = { searchTerm: '', category: 'all', polarity: 'all', register: 'all' };
+                 document.getElementById('searchInput').value = '';
+                 filterButtonGroups.forEach(group => {
+                    const container = document.getElementById(group.id);
+                    container.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                    container.querySelector('button[data-filter="all"]').classList.add('active');
+                 });
+                 renderGlossary();
+            });
+        };
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupChart();
+            renderGlossary();
+            setupEventListeners();
+        });
+    </script>
+</body>
+</html>
